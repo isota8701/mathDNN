@@ -46,4 +46,5 @@ def prob1():
     return theta
 
 
-print(prob1())
+prob1()
+

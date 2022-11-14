@@ -1,6 +1,7 @@
 import torch
 import numpy as np
-from torch import nn, optim
+from torch import optim
+import torch.nn as nn
 from torch.nn import functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
@@ -16,7 +17,7 @@ def f_true(x) :
 
 torch.manual_seed(0)
 X_train = torch.normal(0.0, 1.0, (N,))
-y_train = f_true(X_train)
+y_train = f_true(X_train) + torch.normal(0,0.5, X_train.shape)
 X_val = torch.normal(0.0, 1.0, (N//5,))
 y_val = f_true(X_val)
 
@@ -37,14 +38,54 @@ use a larger batchsize for the test dataloader.
 
 class MLP(nn.Module):
     def __init__(self):
-        pass
+        super(MLP, self).__init__()
+        self.l1 = nn.Linear(1, 64)
+        self.l2 = nn.Linear(64,64)
+        self.l3 = nn.Linear(64,1)
+        self.actv = nn.Sigmoid()
     def forward(self, x):
-        pass
-        
-        
-        
+        x = self.actv(self.l1(x))
+        x = self.actv(self.l2(x))
+        x = self.l3(x)
+        return x
 
 
+
+model = MLP()
+model.l1.weight.data = torch.normal(0,1, model.l1.weight.shape)
+model.l1.bias.data = torch.full(model.l1.bias.shape, 0.03)
+model.l2.weight.data = torch.normal(0,1, model.l2.weight.shape)
+model.l2.bias.data = torch.full(model.l2.bias.shape, 0.03)
+model.l3.weight.data = torch.normal(0,1, model.l3.weight.shape)
+model.l3.bias.data = torch.full(model.l3.bias.shape, 0.03)
+
+loss_fn = nn.MSELoss()
+optimizer = optim.SGD(model.parameters(), lr = 0.1)
+train_loss, valid_loss = [], []
+for e in range(K):
+    tmp_train_loss = []
+    for x,y in train_dataloader:
+        out = model(x)
+        loss = loss_fn(out, y)
+        tmp_train_loss.append(loss.item())
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    train_loss.append(np.average(tmp_train_loss))
+    tmp_valid_loss = []
+    for x,y in test_dataloader:
+        out = model(x)
+        loss = loss_fn(out, y)
+        tmp_valid_loss.append(loss.item())
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    valid_loss.append(np.average(tmp_valid_loss))
+
+    if (e+1)%100 ==0:
+        print(f"epoch {e + 1} / {K}")
+        print(f"\ttrain loss: {train_loss[-1]:.5f}")
+        print(f"\tval loss: {valid_loss[-1]:.5f}")
 with torch.no_grad():
     xx = torch.linspace(-2,2,1024).unsqueeze(1)
     plt.plot(X_train,y_train,'rx',label='Data points')
